@@ -91,8 +91,8 @@ m.Widget button({
       ),
       child: m.BackdropFilter(
         filter: ui.ImageFilter.blur(
-          sigmaX: 16.0,
-          sigmaY: 16.0,
+          sigmaX: 32.0,
+          sigmaY: 32.0,
         ),
         child: m.IconButton(
           iconSize: 500.0 * scaleFactor,
@@ -311,8 +311,8 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
               ),
               child: m.BackdropFilter(
                 filter: ui.ImageFilter.blur(
-                  sigmaX: 16.0,
-                  sigmaY: 16.0,
+                  sigmaX: 32.0,
+                  sigmaY: 32.0,
                 ),
                 child: const m.ClipRRect(
                   borderRadius: m.BorderRadius.all(
