@@ -114,8 +114,8 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
   late final m.AnimationController scaleController;
   late final m.Animation<double> scaleAnimation;
 
-  late final m.AnimationController frameFadeInController;
-  late final m.Animation<double> frameFadeInAnimation;
+  late final m.AnimationController whiteFadeOutController;
+  late final m.Animation<double> whiteFadeOutAnimation;
 
   late final m.AnimationController fadeInController;
   late final m.Animation<double> fadeInAnimation;
@@ -144,20 +144,20 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
       ),
     );
 
-    frameFadeInController = m.AnimationController(
+    whiteFadeOutController = m.AnimationController(
       duration: const Duration(
-        seconds: 5,
+        seconds: 3,
       ),
       vsync: this,
     );
 
-    frameFadeInAnimation = m.Tween<double>(
-      begin: 0.0,
-      end: 1.0,
+    whiteFadeOutAnimation = m.Tween<double>(
+      begin: 1.0,
+      end: 0.0,
     ).animate(
       m.CurvedAnimation(
-        parent: frameFadeInController,
-        curve: m.Curves.easeInOut,
+        parent: whiteFadeOutController,
+        curve: m.Curves.easeOut,
       ),
     );
 
@@ -196,14 +196,14 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
     );
 
     scaleController.repeat(reverse: true);
-    frameFadeInController.forward();
+    whiteFadeOutController.forward();
     fadeInController.forward();
   }
 
   @override
   void dispose() {
     fadeInController.dispose();
-    frameFadeInController.dispose();
+    whiteFadeOutController.dispose();
     scaleController.dispose();
     super.dispose();
   }
@@ -221,6 +221,18 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
             child: m.Image.asset(
               'assets/moog.png',
               fit: m.BoxFit.cover,
+            ),
+          ),
+        ),
+        m.Positioned(
+          left: 0,
+          top: 0,
+          width: screenSize.width,
+          height: screenSize.height,
+          child: m.FadeTransition(
+            opacity: whiteFadeOutAnimation,
+            child: m.Container(
+              color: m.Colors.white,
             ),
           ),
         ),
@@ -265,7 +277,8 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
                 button(
                   scaleFactor: scaleFactor,
                   onPressed: () async {
-                    if (!await url.launch('https://tyler-conrad.github.io/tyler-conrad-resume.pdf')) {
+                    if (!await url.launch(
+                        'https://tyler-conrad.github.io/tyler-conrad-resume.pdf')) {
                       throw 'Failed to launch resume url';
                     }
                   },
@@ -332,8 +345,7 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
               ),
             ),
           ),
-        ),
-        // ),
+        )
       ],
     );
   }
