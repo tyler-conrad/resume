@@ -48408,7 +48408,7 @@ A.Xk.prototype={
 $0(){var s=0,r=A.a2(t.H)
 var $async$$0=A.a3(function(a,b){if(a===1)return A.a_(b,r)
 while(true)switch(s){case 0:s=2
-return A.a6(A.vB("http://conrad.engineering"),$async$$0)
+return A.a6(A.vB("http://tyler-conrad.github.io/tyler-conrad-resume.pdf"),$async$$0)
 case 2:if(!b)throw A.b("Failed to launch resume url")
 return A.a0(null,r)}})
 return A.a1($async$$0,r)},
