@@ -265,7 +265,7 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
                 button(
                   scaleFactor: scaleFactor,
                   onPressed: () async {
-                    if (!await url.launch('http://conrad.engineering')) {
+                    if (!await url.launch('https://tyler-conrad.github.io/tyler-conrad-resume.pdf')) {
                       throw 'Failed to launch resume url';
                     }
                   },
