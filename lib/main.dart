@@ -12,6 +12,12 @@ const double _maxRadius = 92.0;
 const double _frameEdgeInset = 24.0;
 const double _fontSize = 24.0;
 const int _numBoids = 128;
+const double _cornerRadius = 12.0;
+
+final _imageFilter = ui.ImageFilter.blur(
+  sigmaX: 8.0,
+  sigmaY: 8.0,
+);
 
 const glassColor = m.Color.fromARGB(
   64,
@@ -261,54 +267,6 @@ class _BackgroundState extends m.State<Background>
   }
 }
 
-class FrameClip extends m.CustomClipper<m.Path> {
-  FrameClip({
-    required this.frameEdgeInset,
-  });
-
-  final double frameEdgeInset;
-
-  @override
-  ui.Path getClip(
-    ui.Size size,
-  ) {
-    final path = m.Path();
-    path.addRRect(
-      m.RRect.fromRectAndRadius(
-        m.Rect.fromLTWH(
-          0.0,
-          0.0,
-          size.width,
-          size.height,
-        ),
-        m.Radius.circular(
-          r(24.0),
-        ),
-      ),
-    );
-
-    path.addRRect(
-      m.RRect.fromRectAndRadius(
-        m.Rect.fromLTWH(
-          frameEdgeInset * 2.0,
-          frameEdgeInset * 3.0,
-          size.width - frameEdgeInset * 4.0,
-          size.height - frameEdgeInset * 5.0,
-        ),
-        m.Radius.circular(
-          r(24.0),
-        ),
-      ),
-    );
-    path.fillType = m.PathFillType.evenOdd;
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant m.CustomClipper<ui.Path> oldClipper) => true;
-}
-
 m.Widget button({
   required m.Widget child,
   required void Function() onPressed,
@@ -321,15 +279,15 @@ m.Widget button({
     child: m.ClipRRect(
       borderRadius: m.BorderRadius.all(
         m.Radius.circular(
-          r(24.0),
+          r(_cornerRadius),
         ),
       ),
-      child: neu.Neumorphic(
-        style: const neu.NeumorphicStyle(
-          color: glassColor,
-        ),
-        child: m.BackdropFilter(
-          filter: imageFilter,
+      child: m.BackdropFilter(
+        filter: imageFilter,
+        child: neu.Neumorphic(
+          style: const neu.NeumorphicStyle(
+            color: glassColor,
+          ),
           child: m.IconButton(
             iconSize: frameEdgeInset * 2.0,
             color: m.Colors.black,
@@ -487,10 +445,6 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
 
   @override
   m.Widget build(m.BuildContext context) {
-    final imageFilter = ui.ImageFilter.blur(
-      sigmaX: 32.0,
-      sigmaY: 32.0,
-    );
     final frameEdgeInset = r(_frameEdgeInset);
     final fontSize = r(_fontSize);
     final centerSize = m.MediaQuery.of(context).size * 0.5;
@@ -515,21 +469,21 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
                 crossAxisAlignment: m.CrossAxisAlignment.stretch,
                 children: [
                   emailButton(
-                    imageFilter,
+                    _imageFilter,
                     fontSize,
                     frameEdgeInset,
                     fadeInAnimation,
                     context,
                   ),
                   gitHubButton(
-                    imageFilter,
+                    _imageFilter,
                     fontSize,
                     frameEdgeInset,
                     fadeInAnimation,
                     context,
                   ),
                   resumeButton(
-                    imageFilter,
+                    _imageFilter,
                     fontSize,
                     frameEdgeInset,
                     fadeInAnimation,
@@ -545,21 +499,21 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
           top: frameEdgeInset,
           child: m.SizedBox(
             width: centerSize.width - frameEdgeInset * 2.0,
-            height: centerSize.height - frameEdgeInset * 2.0,
-            child: m.ClipPath(
-              clipper: FrameClip(frameEdgeInset: frameEdgeInset),
-              child: neu.Neumorphic(
-                style: const neu.NeumorphicStyle(
-                  color: glassColor,
+            height: frameEdgeInset * 2.1,
+            child: m.ClipRRect(
+              borderRadius: m.BorderRadius.all(
+                m.Radius.circular(
+                  r(_cornerRadius),
                 ),
-                child: m.BackdropFilter(
-                  filter: imageFilter,
-                  child: m.ClipRRect(
-                    borderRadius: m.BorderRadius.all(
-                      m.Radius.circular(
-                        frameEdgeInset,
-                      ),
-                    ),
+              ),
+              child: m.BackdropFilter(
+                filter: ui.ImageFilter.blur(
+                  sigmaX: 32.0,
+                  sigmaY: 32.0,
+                ),
+                child: neu.Neumorphic(
+                  style: const neu.NeumorphicStyle(
+                    color: glassColor,
                   ),
                 ),
               ),
