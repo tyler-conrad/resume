@@ -1,33 +1,37 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart' as serv;
 import 'package:flutter/material.dart' as m;
 import 'package:flutter_neumorphic/flutter_neumorphic.dart' as neu;
 import 'package:flutter/scheduler.dart' as s;
+
+import 'package:collection/collection.dart' show IterableEquality;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher.dart' as url;
 
-const double _maxRadius = 92.0;
-const double _frameEdgeInset = 24.0;
-const double _fontSize = 24.0;
+const double _maxRadius = 384.0;
+const double _frameEdgeInset = 48.0;
+const double _fontSize = 72.0;
 const int _numBoids = 128;
 const double _cornerRadius = 12.0;
+const double _insetFactor = 0.75;
 
 final _imageFilter = ui.ImageFilter.blur(
   sigmaX: 8.0,
   sigmaY: 8.0,
 );
 
-const glassColor = m.Color.fromARGB(
+const _glassColor = m.Color.fromARGB(
   64,
   192,
   192,
   255,
 );
 
-class Boid {
-  Boid({
+class _Boid {
+  _Boid({
     required this.x,
     required this.y,
     required this.velocity,
@@ -42,25 +46,17 @@ class Boid {
   double radius;
 }
 
-double distance(double x0, double y0, double x1, double y1) {
-  return math.sqrt(
-    math.pow((x1 - x0), 2) +
-        math.pow(
-          (y1 - y0),
-          2,
-        ),
-  );
-}
+double _dist(double x, double y) => math.sqrt(
+      math.pow(x, 2) + math.pow(y, 2),
+    );
 
-double dist(double x, double y) => math.sqrt(math.pow(x, 2) + math.pow(y, 2));
-
-class Model {
-  Model({
+class _Model {
+  _Model({
     required this.boids,
     required this.rand,
   });
 
-  Iterable<Boid> boids;
+  final Iterable<_Boid> boids;
   final math.Random rand;
 
   void update(
@@ -92,18 +88,16 @@ class Model {
   }
 }
 
-class Painter<T extends Model> extends m.CustomPainter {
-  Painter({
-    m.Listenable? repaint,
+class _Painter<T extends _Model> extends m.CustomPainter {
+  _Painter({
+    super.repaint,
     required this.screenSize,
-    required this.mousePos,
     required this.model,
     required this.dt,
     required this.image,
-  }) : super(repaint: repaint);
+  });
 
   final m.Size screenSize;
-  final m.Offset mousePos;
   final T model;
   final m.ValueNotifier<double> dt;
   final ui.Image? image;
@@ -119,11 +113,12 @@ class Painter<T extends Model> extends m.CustomPainter {
     for (final boid in model.boids) {
       canvas.drawCircle(
         m.Offset(boid.x, boid.y),
-        (math.sin(dist(screenSize.width * 0.5 - boid.x,
-                        screenSize.height * 0.5 - boid.y) *
-                    0.01) *
-                boid.radius)
-            .abs(),
+        (math.sin(_dist(screenSize.width * 0.5 - boid.x,
+                            screenSize.height * 0.5 - boid.y) *
+                        0.01) *
+                    boid.radius)
+                .abs() +
+            boid.radius * 0.25,
         paint..color = m.Colors.black,
       );
     }
@@ -131,17 +126,23 @@ class Painter<T extends Model> extends m.CustomPainter {
     if (image != null) {
       m.Rect r = m.Offset.zero & size;
 
-      m.Size inputSize =
-          m.Size(image!.width.toDouble(), image!.height.toDouble());
-      m.FittedSizes fs = m.applyBoxFit(m.BoxFit.cover, inputSize, size);
+      m.Size inputSize = m.Size(
+        image!.width.toDouble(),
+        image!.height.toDouble(),
+      );
+      m.FittedSizes fs = m.applyBoxFit(
+        m.BoxFit.cover,
+        inputSize,
+        size,
+      );
 
       m.Rect src = m.Offset.zero & fs.source;
       m.Rect dst = m.Alignment.center.inscribe(fs.destination, r);
 
       canvas.saveLayer(dst, paint);
-
       paint.blendMode = m.BlendMode.difference;
       canvas.restore();
+
       canvas.drawImageRect(
         image!,
         src,
@@ -152,20 +153,26 @@ class Painter<T extends Model> extends m.CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant m.CustomPainter oldDelegate) => true;
+  bool shouldRepaint(_Painter oldDelegate) =>
+      oldDelegate.screenSize != screenSize ||
+      const IterableEquality().equals(
+        oldDelegate.model.boids,
+        model.boids,
+      ) ||
+      oldDelegate.dt != dt ||
+      oldDelegate.image != image;
 }
 
-class Background extends m.StatefulWidget {
-  const Background({m.Key? key}) : super(key: key);
+class _Background extends m.StatefulWidget {
+  const _Background();
 
   @override
   _BackgroundState createState() => _BackgroundState();
 }
 
-class _BackgroundState extends m.State<Background>
+class _BackgroundState extends m.State<_Background>
     with m.SingleTickerProviderStateMixin {
   late m.Size screenSize;
-  late m.Offset mousePos;
   late final s.Ticker ticker;
 
   final rand = math.Random();
@@ -176,7 +183,7 @@ class _BackgroundState extends m.State<Background>
 
   m.ValueNotifier<double> dt = m.ValueNotifier(0.0);
 
-  late Model model;
+  late _Model model;
 
   @override
   void dispose() {
@@ -210,17 +217,15 @@ class _BackgroundState extends m.State<Background>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    screenSize = m.MediaQuery.of(context).size * 0.5;
-    final halfScreenSize = screenSize * 0.5;
-    mousePos = m.Offset(halfScreenSize.width, halfScreenSize.height);
-    model = Model(
+    screenSize = m.MediaQuery.of(context).size * _insetFactor;
+    model = _Model(
       rand: rand,
       boids: List.generate(
         _numBoids,
-        (index) => Boid(
+        (index) => _Boid(
           x: screenSize.width * rand.nextDouble(),
           y: screenSize.height * rand.nextDouble(),
-          velocity: rand.nextDouble() * 10.0,
+          velocity: rand.nextDouble(),
           angle: rand.nextDouble() * math.pi * 2.0,
           radius: (rand.nextDouble() * _maxRadius).r,
         ),
@@ -238,18 +243,12 @@ class _BackgroundState extends m.State<Background>
 
   @override
   m.Widget build(m.BuildContext context) {
-    screenSize = m.MediaQuery.of(context).size * 0.5;
-    return m.Listener(
-      onPointerHover: (e) {
-        setState(() {
-          mousePos = e.localPosition;
-        });
-      },
-      child: m.ClipRect(
+    screenSize = m.MediaQuery.of(context).size * _insetFactor;
+    return m.ClipRect(
+      child: m.RepaintBoundary(
         child: m.CustomPaint(
-          painter: Painter<Model>(
+          painter: _Painter<_Model>(
             screenSize: screenSize,
-            mousePos: mousePos,
             model: model,
             repaint: dt,
             dt: dt,
@@ -269,28 +268,26 @@ m.Widget button({
   required ui.ImageFilter imageFilter,
   required m.BuildContext context,
 }) {
-  return m.SizedBox(
-    child: m.ClipRRect(
-      borderRadius: m.BorderRadius.all(
-        m.Radius.circular(
-          _cornerRadius.r,
-        ),
+  return m.ClipRRect(
+    borderRadius: m.BorderRadius.all(
+      m.Radius.circular(
+        _cornerRadius.r,
       ),
-      child: m.BackdropFilter(
-        filter: imageFilter,
-        child: neu.Neumorphic(
-          style: const neu.NeumorphicStyle(
-            color: glassColor,
+    ),
+    child: m.BackdropFilter(
+      filter: imageFilter,
+      child: neu.Neumorphic(
+        style: const neu.NeumorphicStyle(
+          color: _glassColor,
+        ),
+        child: m.IconButton(
+          iconSize: frameEdgeInset * 2.0,
+          color: m.Colors.black,
+          icon: m.FadeTransition(
+            opacity: fadeInAnimation,
+            child: child,
           ),
-          child: m.IconButton(
-            iconSize: frameEdgeInset * 2.0,
-            color: m.Colors.black,
-            icon: m.FadeTransition(
-              opacity: fadeInAnimation,
-              child: child,
-            ),
-            onPressed: onPressed,
-          ),
+          onPressed: onPressed,
         ),
       ),
     ),
@@ -334,7 +331,10 @@ m.Widget gitHubButton(
 ) {
   return button(
     imageFilter: imageFilter,
-    child: m.Image.asset('assets/github.png'),
+    child: m.SizedBox(
+      height: fontSize * 1.5,
+      child: m.Image.asset('assets/github.png'),
+    ),
     onPressed: () async {
       if (!await url.launchUrl(Uri.parse('https://github.com/tyler-conrad'))) {
         throw 'Failed to launch github link';
@@ -375,14 +375,14 @@ m.Widget resumeButton(
   );
 }
 
-class Resume extends m.StatefulWidget {
-  const Resume({m.Key? key}) : super(key: key);
+class _Resume extends m.StatefulWidget {
+  const _Resume();
 
   @override
   _ResumeState createState() => _ResumeState();
 }
 
-class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
+class _ResumeState extends m.State<_Resume> with m.TickerProviderStateMixin {
   late final m.AnimationController fadeInController;
   late final m.Animation<double> fadeInAnimation;
 
@@ -441,7 +441,7 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
   m.Widget build(m.BuildContext context) {
     final frameEdgeInset = _frameEdgeInset.r;
     final fontSize = _fontSize.r;
-    final centerSize = m.MediaQuery.of(context).size * 0.5;
+    final centerSize = m.MediaQuery.of(context).size * _insetFactor;
     return m.Stack(
       children: [
         m.Positioned(
@@ -449,7 +449,7 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
           top: 0.0,
           width: centerSize.width,
           height: centerSize.height,
-          child: const Background(),
+          child: const _Background(),
         ),
         m.Positioned(
           left: frameEdgeInset * 4.0,
@@ -469,14 +469,14 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
                     fadeInAnimation,
                     context,
                   ),
-                  gitHubButton(
+                  resumeButton(
                     _imageFilter,
                     fontSize,
                     frameEdgeInset,
                     fadeInAnimation,
                     context,
                   ),
-                  resumeButton(
+                  gitHubButton(
                     _imageFilter,
                     fontSize,
                     frameEdgeInset,
@@ -493,7 +493,7 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
           top: frameEdgeInset,
           child: m.SizedBox(
             width: centerSize.width - frameEdgeInset * 2.0,
-            height: frameEdgeInset * 2.1,
+            height: frameEdgeInset * 2.8,
             child: m.ClipRRect(
               borderRadius: m.BorderRadius.all(
                 m.Radius.circular(_cornerRadius.r),
@@ -505,7 +505,7 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
                 ),
                 child: neu.Neumorphic(
                   style: const neu.NeumorphicStyle(
-                    color: glassColor,
+                    color: _glassColor,
                   ),
                 ),
               ),
@@ -534,7 +534,7 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
 }
 
 class ResumeApp extends m.StatefulWidget {
-  const ResumeApp({m.Key? key}) : super(key: key);
+  const ResumeApp({super.key});
 
   @override
   m.State<ResumeApp> createState() => _ResumeAppState();
@@ -592,8 +592,8 @@ class _ResumeAppState extends m.State<ResumeApp>
                     width: screenSize.width,
                     height: screenSize.height,
                     child: m.FractionallySizedBox(
-                      heightFactor: 0.5,
-                      widthFactor: 0.5,
+                      heightFactor: _insetFactor,
+                      widthFactor: _insetFactor,
                       child: m.DecoratedBox(
                         decoration: m.BoxDecoration(
                           boxShadow: [
@@ -604,7 +604,7 @@ class _ResumeAppState extends m.State<ResumeApp>
                             )
                           ],
                         ),
-                        child: const Resume(),
+                        child: const _Resume(),
                       ),
                     ),
                   ),

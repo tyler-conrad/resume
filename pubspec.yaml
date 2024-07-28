@@ -41,6 +41,7 @@ dependencies:
       ref: feature/remoce_accentcolor
   url_launcher: ^6.3.0
   flutter_screenutil: ^5.9.3
+  collection: ^1.18.0
 
 dev_dependencies:
   flutter_test:
