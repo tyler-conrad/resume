@@ -5,7 +5,7 @@ import 'package:flutter/services.dart' as serv;
 import 'package:flutter/material.dart' as m;
 import 'package:flutter_neumorphic/flutter_neumorphic.dart' as neu;
 import 'package:flutter/scheduler.dart' as s;
-import 'package:sizer/sizer.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher.dart' as url;
 
 const double _maxRadius = 92.0;
@@ -25,12 +25,6 @@ const glassColor = m.Color.fromARGB(
   192,
   255,
 );
-
-double r(double size) {
-  final widthFactor = 0.1.w;
-  final heightFactor = 0.1.h;
-  return widthFactor > heightFactor ? heightFactor * size : widthFactor * size;
-}
 
 class Boid {
   Boid({
@@ -228,7 +222,7 @@ class _BackgroundState extends m.State<Background>
           y: screenSize.height * rand.nextDouble(),
           velocity: rand.nextDouble() * 10.0,
           angle: rand.nextDouble() * math.pi * 2.0,
-          radius: r(rand.nextDouble() * _maxRadius),
+          radius: (rand.nextDouble() * _maxRadius).r,
         ),
       ),
     );
@@ -279,7 +273,7 @@ m.Widget button({
     child: m.ClipRRect(
       borderRadius: m.BorderRadius.all(
         m.Radius.circular(
-          r(_cornerRadius),
+          _cornerRadius.r,
         ),
       ),
       child: m.BackdropFilter(
@@ -321,7 +315,7 @@ m.Widget emailButton(
           fontSize: fontSize, fontFamily: 'PorticoFilled'),
     ),
     onPressed: () async {
-      if (!await url.launch('mailto:conradtyler0@gmail.com')) {
+      if (!await url.launchUrl(Uri.parse('mailto:conradtyler0@gmail.com'))) {
         throw 'Failed to launch email URL';
       }
     },
@@ -342,7 +336,7 @@ m.Widget gitHubButton(
     imageFilter: imageFilter,
     child: m.Image.asset('assets/github.png'),
     onPressed: () async {
-      if (!await url.launch('https://github.com/tyler-conrad')) {
+      if (!await url.launchUrl(Uri.parse('https://github.com/tyler-conrad'))) {
         throw 'Failed to launch github link';
       }
     },
@@ -362,8 +356,8 @@ m.Widget resumeButton(
   return button(
     imageFilter: imageFilter,
     onPressed: () async {
-      if (!await url
-          .launch('https://tyler-conrad.github.io/tyler-conrad-resume.pdf')) {
+      if (!await url.launchUrl(Uri.parse(
+          'https://tyler-conrad.github.io/tyler-conrad-resume.pdf'))) {
         throw 'Failed to launch resume url';
       }
     },
@@ -445,8 +439,8 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
 
   @override
   m.Widget build(m.BuildContext context) {
-    final frameEdgeInset = r(_frameEdgeInset);
-    final fontSize = r(_fontSize);
+    final frameEdgeInset = _frameEdgeInset.r;
+    final fontSize = _fontSize.r;
     final centerSize = m.MediaQuery.of(context).size * 0.5;
     return m.Stack(
       children: [
@@ -502,9 +496,7 @@ class _ResumeState extends m.State<Resume> with m.TickerProviderStateMixin {
             height: frameEdgeInset * 2.1,
             child: m.ClipRRect(
               borderRadius: m.BorderRadius.all(
-                m.Radius.circular(
-                  r(_cornerRadius),
-                ),
+                m.Radius.circular(_cornerRadius.r),
               ),
               child: m.BackdropFilter(
                 filter: ui.ImageFilter.blur(
@@ -585,53 +577,58 @@ class _ResumeAppState extends m.State<ResumeApp>
 
   @override
   m.Widget build(m.BuildContext context) {
-    return Sizer(builder: (context, orientation, deviceType) {
-      return m.MaterialApp(builder: (context, _widget) {
-        final screenSize = m.MediaQuery.of(context).size;
-        return m.Scaffold(
-          body: m.Stack(
-            children: [
-              m.Positioned(
-                left: 0.0,
-                top: 0.0,
-                width: screenSize.width,
-                height: screenSize.height,
-                child: m.FractionallySizedBox(
-                  heightFactor: 0.5,
-                  widthFactor: 0.5,
-                  child: m.DecoratedBox(
-                    decoration: m.BoxDecoration(
-                      boxShadow: [
-                        m.BoxShadow(
-                          blurRadius: r(128.0),
-                          color: m.Colors.black,
-                          spreadRadius: r(128.0),
-                        )
-                      ],
-                    ),
-                    child: const Resume(),
-                  ),
-                ),
-              ),
-              m.Positioned(
-                left: 0.0,
-                top: 0.0,
-                width: screenSize.width,
-                height: screenSize.height,
-                child: m.IgnorePointer(
-                  child: m.FadeTransition(
-                    opacity: whiteFadeOutAnimation,
-                    child: m.Container(
-                      color: m.Colors.white,
+    return ScreenUtilInit(
+      designSize: const m.Size(1080, 1920),
+      builder: (_, child) {
+        return m.MaterialApp(
+          builder: (context, _) {
+            final screenSize = m.MediaQuery.of(context).size;
+            return m.Scaffold(
+              body: m.Stack(
+                children: [
+                  m.Positioned(
+                    left: 0.0,
+                    top: 0.0,
+                    width: screenSize.width,
+                    height: screenSize.height,
+                    child: m.FractionallySizedBox(
+                      heightFactor: 0.5,
+                      widthFactor: 0.5,
+                      child: m.DecoratedBox(
+                        decoration: m.BoxDecoration(
+                          boxShadow: [
+                            m.BoxShadow(
+                              blurRadius: 128.0.r,
+                              color: m.Colors.black,
+                              spreadRadius: 128.0.r,
+                            )
+                          ],
+                        ),
+                        child: const Resume(),
+                      ),
                     ),
                   ),
-                ),
+                  m.Positioned(
+                    left: 0.0,
+                    top: 0.0,
+                    width: screenSize.width,
+                    height: screenSize.height,
+                    child: m.IgnorePointer(
+                      child: m.FadeTransition(
+                        opacity: whiteFadeOutAnimation,
+                        child: m.Container(
+                          color: m.Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
-      });
-    });
+      },
+    );
   }
 }
 
