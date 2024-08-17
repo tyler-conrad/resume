@@ -273,13 +273,13 @@ const projects = [
   Project(
     title: 'Floss',
     githubUrl: 'https://github.com/tyler-conrad/floss',
-    demoUrl: 'floss',
+    demoUrl: 'floss/floss.html',
     docsUrl: 'doc/floss',
   ),
   Project(
     title: 'Charts Mockup',
     githubUrl: 'https://github.com/tyler-conrad/flutter_charts_mockup',
-    demoUrl: 'flutter_charts_mockup',
+    demoUrl: 'flutter_charts_mockup/flutter_charts_mockup.html',
     docsUrl: 'doc/flutter_charts_mockup',
   ),
   Project(
