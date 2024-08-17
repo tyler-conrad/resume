@@ -1,379 +1,312 @@
-import 'dart:math' as math;
-import 'dart:ui' as ui;
-
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart' as serv;
 import 'package:flutter/material.dart' as m;
-import 'package:flutter_neumorphic/flutter_neumorphic.dart' as neu;
-import 'package:flutter/scheduler.dart' as s;
+import 'package:glassmorphism/glassmorphism.dart' as gm;
 
-import 'package:collection/collection.dart' show IterableEquality;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher.dart' as url;
 
-const double _maxRadius = 384.0;
-const double _frameEdgeInset = 48.0;
-const double _fontSize = 72.0;
-const int _numBoids = 128;
-const double _cornerRadius = 12.0;
-const double _insetFactor = 0.75;
+const double maxRadius = 512.0;
+const double _fontSize = 100.0;
+const int numBoids = 96;
+const double borderRadius = 12.0;
+const double padding = 16.0;
 
-final _imageFilter = ui.ImageFilter.blur(
-  sigmaX: 8.0,
-  sigmaY: 8.0,
-);
+const m.Color glassColor = m.Colors.white10;
+const m.Color glassBorderColor = m.Colors.black;
 
-const _glassColor = m.Color.fromARGB(
-  64,
-  192,
-  192,
-  255,
-);
-
-class _Boid {
-  _Boid({
-    required this.x,
-    required this.y,
-    required this.velocity,
-    required this.angle,
-    required this.radius,
-  });
-
-  double x;
-  double y;
-  double velocity;
-  double angle;
-  double radius;
-}
-
-double _dist(double x, double y) => math.sqrt(
-      math.pow(x, 2) + math.pow(y, 2),
-    );
-
-class _Model {
-  _Model({
-    required this.boids,
-    required this.rand,
-  });
-
-  final Iterable<_Boid> boids;
-  final math.Random rand;
-
-  void update(
-    double dt,
-    m.Size screenSize,
-  ) {
-    for (final boid in boids) {
-      final x = math.cos(boid.angle) * boid.velocity;
-      final y = math.sin(boid.angle) * boid.velocity;
-
-      boid.x = (boid.x + x);
-      boid.y = (boid.y + y);
-
-      if (boid.x <= 0.0) {
-        boid.x = screenSize.width + boid.x % screenSize.width;
-      }
-
-      if (boid.y <= 0.0) {
-        boid.y = screenSize.height + boid.y % screenSize.height;
-      }
-
-      if (boid.x > screenSize.width) {
-        boid.x = boid.x % screenSize.width;
-      }
-      if (boid.y > screenSize.height) {
-        boid.y = boid.y % screenSize.height;
-      }
-    }
-  }
-}
-
-class _Painter<T extends _Model> extends m.CustomPainter {
-  _Painter({
-    super.repaint,
-    required this.screenSize,
-    required this.model,
-    required this.dt,
-    required this.image,
-  });
-
-  final m.Size screenSize;
-  final T model;
-  final m.ValueNotifier<double> dt;
-  final ui.Image? image;
-
-  @override
-  void paint(m.Canvas canvas, m.Size size) {
-    final paint = m.Paint();
-    canvas.drawRect(
-      m.Rect.fromLTWH(0.0, 0.0, size.width, size.height),
-      paint..color = m.Colors.white,
-    );
-
-    for (final boid in model.boids) {
-      canvas.drawCircle(
-        m.Offset(boid.x, boid.y),
-        (math.sin(_dist(screenSize.width * 0.5 - boid.x,
-                            screenSize.height * 0.5 - boid.y) *
-                        0.01) *
-                    boid.radius)
-                .abs() +
-            boid.radius * 0.25,
-        paint..color = m.Colors.black,
-      );
-    }
-
-    if (image != null) {
-      m.Rect r = m.Offset.zero & size;
-
-      m.Size inputSize = m.Size(
-        image!.width.toDouble(),
-        image!.height.toDouble(),
-      );
-      m.FittedSizes fs = m.applyBoxFit(
-        m.BoxFit.cover,
-        inputSize,
-        size,
-      );
-
-      m.Rect src = m.Offset.zero & fs.source;
-      m.Rect dst = m.Alignment.center.inscribe(fs.destination, r);
-
-      canvas.saveLayer(dst, paint);
-      paint.blendMode = m.BlendMode.difference;
-      canvas.restore();
-
-      canvas.drawImageRect(
-        image!,
-        src,
-        dst,
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_Painter oldDelegate) =>
-      oldDelegate.screenSize != screenSize ||
-      const IterableEquality().equals(
-        oldDelegate.model.boids,
-        model.boids,
-      ) ||
-      oldDelegate.dt != dt ||
-      oldDelegate.image != image;
-}
-
-class _Background extends m.StatefulWidget {
-  const _Background();
-
-  @override
-  _BackgroundState createState() => _BackgroundState();
-}
-
-class _BackgroundState extends m.State<_Background>
-    with m.SingleTickerProviderStateMixin {
-  late m.Size screenSize;
-  late final s.Ticker ticker;
-
-  final rand = math.Random();
-
-  Duration lastTick = const Duration(
-    seconds: 0,
-  );
-
-  m.ValueNotifier<double> dt = m.ValueNotifier(0.0);
-
-  late _Model model;
-
-  @override
-  void dispose() {
-    ticker.dispose();
-    super.dispose();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-
-    _load('assets/moog.png');
-
-    ticker = createTicker(
-      (elapsed) {
-        setState(
-          () {
-            dt.value =
-                (elapsed - lastTick).inMicroseconds.toDouble() / 1000000.0;
-            lastTick = elapsed;
-            model.update(
-              dt.value,
-              screenSize,
-            );
-          },
-        );
-      },
-    )..start();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    screenSize = m.MediaQuery.of(context).size * _insetFactor;
-    model = _Model(
-      rand: rand,
-      boids: List.generate(
-        _numBoids,
-        (index) => _Boid(
-          x: screenSize.width * rand.nextDouble(),
-          y: screenSize.height * rand.nextDouble(),
-          velocity: rand.nextDouble(),
-          angle: rand.nextDouble() * math.pi * 2.0,
-          radius: (rand.nextDouble() * _maxRadius).r,
-        ),
-      ),
-    );
-  }
-
-  ui.Image? image;
-
-  void _load(String path) async {
-    var bytes = await serv.rootBundle.load(path);
-    image = await m.decodeImageFromList(bytes.buffer.asUint8List());
-    setState(() {});
-  }
-
-  @override
-  m.Widget build(m.BuildContext context) {
-    screenSize = m.MediaQuery.of(context).size * _insetFactor;
-    return m.ClipRect(
-      child: m.RepaintBoundary(
-        child: m.CustomPaint(
-          painter: _Painter<_Model>(
-            screenSize: screenSize,
-            model: model,
-            repaint: dt,
-            dt: dt,
-            image: image,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-m.Widget button({
+m.Widget buttonBuilder({
   required m.Widget child,
+  required double left,
+  required double top,
+  required double right,
+  required double bottom,
   required void Function() onPressed,
-  required double frameEdgeInset,
-  required m.Animation<double> fadeInAnimation,
-  required ui.ImageFilter imageFilter,
-  required m.BuildContext context,
 }) {
-  return m.ClipRRect(
-    borderRadius: m.BorderRadius.all(
-      m.Radius.circular(
-        _cornerRadius.r,
+  return gm.GlassmorphicFlexContainer(
+    padding: m.EdgeInsets.fromLTRB(left, top, right, bottom),
+    borderRadius: borderRadius,
+    border: 1.0,
+    blur: 8.0,
+    borderGradient:
+        const m.LinearGradient(colors: [glassColor, glassBorderColor]),
+    linearGradient: const m.LinearGradient(colors: [glassColor, glassColor]),
+    child: m.MouseRegion(
+      cursor: m.SystemMouseCursors.click,
+      child: m.GestureDetector(
+        onTap: onPressed,
+        child: child,
       ),
     ),
-    child: m.BackdropFilter(
-      filter: imageFilter,
-      child: neu.Neumorphic(
-        style: const neu.NeumorphicStyle(
-          color: _glassColor,
-        ),
-        child: m.IconButton(
-          iconSize: frameEdgeInset * 2.0,
-          color: m.Colors.black,
-          icon: m.FadeTransition(
-            opacity: fadeInAnimation,
-            child: child,
-          ),
-          onPressed: onPressed,
-        ),
+  );
+}
+
+m.Widget projectButtonBuilder({
+  required m.Widget child,
+  required void Function() onPressed,
+}) {
+  return gm.GlassmorphicFlexContainer(
+    padding: const m.EdgeInsets.all(16.0).r,
+    borderRadius: borderRadius,
+    border: 1.0,
+    blur: 20.0,
+    borderGradient:
+        const m.LinearGradient(colors: [glassBorderColor, glassBorderColor]),
+    linearGradient: const m.LinearGradient(colors: [glassColor, glassColor]),
+    child: m.MouseRegion(
+      cursor: m.SystemMouseCursors.click,
+      child: m.GestureDetector(
+        onTap: onPressed,
+        child: child,
       ),
+    ),
+  );
+}
+
+m.Widget projectButton({
+  required String title,
+  required String githubUrl,
+  String? demoUrl,
+  String? docsUrl,
+  required double fontSize,
+}) {
+  return projectButtonBuilder(
+    onPressed: () async {
+      if (!await url.launchUrl(Uri.parse(githubUrl))) {
+        throw 'Failed to launch email URL';
+      }
+    },
+    child: m.Row(
+      children: [
+        m.Expanded(
+          child: m.GestureDetector(
+            onTap: () async {
+              if (!await url.launchUrl(Uri.parse(githubUrl))) {
+                throw 'Failed to launch github URL';
+              }
+            },
+            child: m.Center(
+              child: m.Text(
+                title,
+                style: m.TextStyle(
+                  color: m.Colors.black,
+                  fontSize: 64.0.r,
+                  fontWeight: m.FontWeight.bold,
+                  fontFamily: 'PorticoFilled',
+                  shadows: const [
+                    m.Shadow(
+                      color: m.Colors.white,
+                      blurRadius: 4.0,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        m.Flexible(
+          child: m.Row(
+            mainAxisAlignment: m.MainAxisAlignment.spaceBetween,
+            children: [
+              if (demoUrl != null)
+                m.Expanded(
+                  child: m.GestureDetector(
+                    onTap: () async {
+                      if (!await url.launchUrl(Uri.parse(demoUrl))) {
+                        throw 'Failed to launch demo URL';
+                      }
+                    },
+                    child: m.Center(
+                      child: m.Text(
+                        'Demo',
+                        style: m.TextStyle(
+                          color: m.Colors.black,
+                          fontSize: 64.0.r,
+                          fontWeight: m.FontWeight.bold,
+                          fontFamily: 'PorticoFilled',
+                          shadows: const [
+                            m.Shadow(
+                              color: m.Colors.white,
+                              blurRadius: 4.0,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              if (demoUrl == null) const m.Spacer(),
+              if (docsUrl != null)
+                m.Expanded(
+                  child: m.GestureDetector(
+                    onTap: () async {
+                      if (!await url.launchUrl(Uri.parse(docsUrl))) {
+                        throw 'Failed to launch documentation URL';
+                      }
+                    },
+                    child: m.Center(
+                      child: m.Text(
+                        'Docs',
+                        style: m.TextStyle(
+                          color: m.Colors.black,
+                          fontSize: 64.0.r,
+                          fontWeight: m.FontWeight.bold,
+                          fontFamily: 'PorticoFilled',
+                          shadows: const [
+                            m.Shadow(
+                              color: m.Colors.white,
+                              blurRadius: 4.0,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     ),
   );
 }
 
 m.Widget emailButton(
-  ui.ImageFilter imageFilter,
   double fontSize,
-  double frameEdgeInset,
-  m.Animation<double> fadeInAnimation,
-  m.BuildContext context,
 ) {
-  return button(
-    imageFilter: imageFilter,
-    child: neu.NeumorphicText(
-      'Email',
-      style: const neu.NeumorphicStyle(
-        color: m.Colors.black,
-      ),
-      textStyle: neu.NeumorphicTextStyle(
-          fontSize: fontSize, fontFamily: 'PorticoFilled'),
-    ),
+  return buttonBuilder(
+    left: 0.0,
+    top: padding,
+    right: padding,
+    bottom: padding,
     onPressed: () async {
       if (!await url.launchUrl(Uri.parse('mailto:conradtyler0@gmail.com'))) {
         throw 'Failed to launch email URL';
       }
     },
-    frameEdgeInset: frameEdgeInset,
-    fadeInAnimation: fadeInAnimation,
-    context: context,
+    child: m.Center(
+      child: m.Text(
+        'Email',
+        style: m.TextStyle(
+          color: m.Colors.black,
+          fontSize: fontSize,
+          fontFamily: 'PorticoFilled',
+          shadows: const [
+            m.Shadow(
+              color: m.Colors.white,
+              blurRadius: 8.0,
+            ),
+          ],
+        ),
+      ),
+    ),
   );
 }
 
 m.Widget gitHubButton(
-  ui.ImageFilter imageFilter,
   double fontSize,
-  double frameEdgeInset,
-  m.Animation<double> fadeInAnimation,
-  m.BuildContext context,
 ) {
-  return button(
-    imageFilter: imageFilter,
-    child: m.SizedBox(
-      height: fontSize * 1.5,
-      child: m.Image.asset('assets/github.png'),
-    ),
+  return buttonBuilder(
+    left: padding,
+    top: padding,
+    right: padding,
+    bottom: padding,
     onPressed: () async {
       if (!await url.launchUrl(Uri.parse('https://github.com/tyler-conrad'))) {
         throw 'Failed to launch github link';
       }
     },
-    frameEdgeInset: frameEdgeInset,
-    fadeInAnimation: fadeInAnimation,
-    context: context,
+    child: m.Center(
+      child: m.SizedBox(
+        height: fontSize * 1.3,
+        child: m.Image.asset('assets/github.png'),
+      ),
+    ),
   );
 }
 
 m.Widget resumeButton(
-  ui.ImageFilter imageFilter,
   double fontSize,
-  double frameEdgeInset,
-  m.Animation<double> fadeInAnimation,
-  m.BuildContext context,
 ) {
-  return button(
-    imageFilter: imageFilter,
+  return buttonBuilder(
+    left: padding,
+    top: padding,
+    right: 0.0,
+    bottom: padding,
     onPressed: () async {
-      if (!await url.launchUrl(Uri.parse(
-          'https://tyler-conrad.github.io/tyler-conrad-resume.pdf'))) {
+      if (!await url.launchUrl(Uri.parse('tyler_conrad_resume.pdf'))) {
         throw 'Failed to launch resume url';
       }
     },
-    frameEdgeInset: frameEdgeInset,
-    fadeInAnimation: fadeInAnimation,
-    child: neu.NeumorphicText(
-      'Resume',
-      style: const neu.NeumorphicStyle(
-        color: m.Colors.black,
+    child: m.Center(
+      child: m.Text(
+        'Resume',
+        style: m.TextStyle(
+          color: m.Colors.black,
+          fontSize: fontSize,
+          fontFamily: 'PorticoFilled',
+          shadows: const [
+            m.Shadow(
+              color: m.Colors.white,
+              blurRadius: 8.0,
+            ),
+          ],
+        ),
       ),
-      textStyle: neu.NeumorphicTextStyle(
-          fontSize: fontSize, fontFamily: 'PorticoFilled'),
     ),
-    context: context,
   );
 }
+
+class Project {
+  const Project({
+    required this.title,
+    required this.githubUrl,
+    this.demoUrl,
+    this.docsUrl,
+  });
+
+  final String title;
+  final String githubUrl;
+  final String? demoUrl;
+  final String? docsUrl;
+}
+
+const projects = [
+  Project(
+    title: 'Floss',
+    githubUrl: 'https://github.com/tyler-conrad/floss',
+    demoUrl: 'floss',
+    docsUrl: 'doc/floss',
+  ),
+  Project(
+    title: 'Charts Mockup',
+    githubUrl: 'https://github.com/tyler-conrad/flutter_charts_mockup',
+    demoUrl: 'flutter_charts_mockup',
+    docsUrl: 'doc/flutter_charts_mockup',
+  ),
+  Project(
+    title: 'NASA APOD',
+    githubUrl: 'https://github.com/tyler-conrad/apod',
+    docsUrl: 'doc/apod',
+  ),
+  Project(
+    title: 'GPU Noise',
+    githubUrl: 'https://github.com/tyler-conrad/gpu_noise',
+    docsUrl: 'doc/gpu_noise',
+  ),
+  Project(
+    title: 'Ray Tracer',
+    githubUrl: 'https://github.com/tyler-conrad/ray_tracer',
+    docsUrl: 'doc/ray_tracer',
+  ),
+  Project(
+    title: 'DeviantArt',
+    githubUrl: 'https://github.com/tyler-conrad/deviantart_client',
+    docsUrl: 'doc/deviantart_client',
+  ),
+  Project(
+    title: 'Exercism',
+    githubUrl: 'https://github.com/tyler-conrad/dart_exercism',
+  ),
+];
 
 class _Resume extends m.StatefulWidget {
   const _Resume();
@@ -395,7 +328,7 @@ class _ResumeState extends m.State<_Resume> with m.TickerProviderStateMixin {
 
     fadeInController = m.AnimationController(
       duration: const Duration(
-        seconds: 10,
+        seconds: 4,
       ),
       vsync: this,
     );
@@ -439,96 +372,91 @@ class _ResumeState extends m.State<_Resume> with m.TickerProviderStateMixin {
 
   @override
   m.Widget build(m.BuildContext context) {
-    final frameEdgeInset = _frameEdgeInset.r;
-    final fontSize = _fontSize.r;
-    final centerSize = m.MediaQuery.of(context).size * _insetFactor;
-    return m.Stack(
-      children: [
-        m.Positioned(
-          left: 0.0,
-          top: 0.0,
-          width: centerSize.width,
-          height: centerSize.height,
-          child: const _Background(),
-        ),
-        m.Positioned(
-          left: frameEdgeInset * 4.0,
-          top: frameEdgeInset * 5.0,
-          child: m.SizedBox(
-            width: centerSize.width - frameEdgeInset * 8.0,
-            height: centerSize.height - frameEdgeInset * 9.0,
-            child: m.Center(
-              child: m.Column(
-                mainAxisAlignment: m.MainAxisAlignment.spaceEvenly,
-                crossAxisAlignment: m.CrossAxisAlignment.stretch,
-                children: [
-                  emailButton(
-                    _imageFilter,
-                    fontSize,
-                    frameEdgeInset,
-                    fadeInAnimation,
-                    context,
-                  ),
-                  resumeButton(
-                    _imageFilter,
-                    fontSize,
-                    frameEdgeInset,
-                    fadeInAnimation,
-                    context,
-                  ),
-                  gitHubButton(
-                    _imageFilter,
-                    fontSize,
-                    frameEdgeInset,
-                    fadeInAnimation,
-                    context,
-                  ),
-                ],
-              ),
+    final size = m.MediaQuery.of(context).size;
+    return m.FadeTransition(
+      opacity: fadeInAnimation,
+      child: m.Stack(
+        children: [
+          m.Positioned(
+            left: 0.0,
+            top: 0.0,
+            width: size.width,
+            height: size.height,
+            child: m.Image.asset(
+              'assets/moog.png',
+              fit: m.BoxFit.fill,
             ),
           ),
-        ),
-        m.Positioned(
-          left: frameEdgeInset,
-          top: frameEdgeInset,
-          child: m.SizedBox(
-            width: centerSize.width - frameEdgeInset * 2.0,
-            height: frameEdgeInset * 2.8,
-            child: m.ClipRRect(
-              borderRadius: m.BorderRadius.all(
-                m.Radius.circular(_cornerRadius.r),
-              ),
-              child: m.BackdropFilter(
-                filter: ui.ImageFilter.blur(
-                  sigmaX: 32.0,
-                  sigmaY: 32.0,
-                ),
-                child: neu.Neumorphic(
-                  style: const neu.NeumorphicStyle(
-                    color: _glassColor,
+          m.Padding(
+            padding: const m.EdgeInsets.all(128.0).r,
+            child: m.Column(
+              mainAxisAlignment: m.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: m.CrossAxisAlignment.stretch,
+              children: [
+                gm.GlassmorphicFlexContainer(
+                  flex: 1,
+                  borderRadius: borderRadius,
+                  border: 1.0,
+                  blur: 8.0,
+                  borderGradient: const m.LinearGradient(
+                      colors: [glassBorderColor, glassBorderColor]),
+                  linearGradient:
+                      const m.LinearGradient(colors: [glassColor, glassColor]),
+                  child: m.Center(
+                    child: m.Text(
+                      'Tyler Conrad',
+                      style: m.TextStyle(
+                        color: m.Colors.black,
+                        fontSize: 160.0.r,
+                        fontFamily: 'PorticoFilled',
+                        shadows: const [
+                          m.Shadow(
+                            color: m.Colors.white,
+                            blurRadius: 8.0,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                m.Expanded(
+                  flex: 1,
+                  child: m.Row(
+                    mainAxisAlignment: m.MainAxisAlignment.spaceBetween,
+                    children: [
+                      emailButton(
+                        _fontSize.r,
+                      ),
+                      gitHubButton(
+                        _fontSize.r,
+                      ),
+                      resumeButton(
+                        _fontSize.r,
+                      ),
+                    ],
+                  ),
+                ),
+                m.Expanded(
+                  flex: 4,
+                  child: m.Column(
+                    mainAxisAlignment: m.MainAxisAlignment.spaceBetween,
+                    children: [
+                      for (final project in projects)
+                        projectButton(
+                          title: project.title,
+                          githubUrl: project.githubUrl,
+                          demoUrl: project.demoUrl,
+                          docsUrl: project.docsUrl,
+                          fontSize: 100.0.r,
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        m.Positioned(
-          left: frameEdgeInset * 1.7,
-          top: frameEdgeInset * 1.5,
-          child: m.FadeTransition(
-            opacity: fadeInAnimation,
-            child: neu.NeumorphicText(
-              'Tyler Conrad',
-              textStyle: neu.NeumorphicTextStyle(
-                fontSize: fontSize,
-              ),
-              style: const neu.NeumorphicStyle(
-                color: m.Colors.black,
-              ),
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -581,51 +509,10 @@ class _ResumeAppState extends m.State<ResumeApp>
       designSize: const m.Size(1080, 1920),
       builder: (_, child) {
         return m.MaterialApp(
-          builder: (context, _) {
-            final screenSize = m.MediaQuery.of(context).size;
-            return m.Scaffold(
-              body: m.Stack(
-                children: [
-                  m.Positioned(
-                    left: 0.0,
-                    top: 0.0,
-                    width: screenSize.width,
-                    height: screenSize.height,
-                    child: m.FractionallySizedBox(
-                      heightFactor: _insetFactor,
-                      widthFactor: _insetFactor,
-                      child: m.DecoratedBox(
-                        decoration: m.BoxDecoration(
-                          boxShadow: [
-                            m.BoxShadow(
-                              blurRadius: 128.0.r,
-                              color: m.Colors.black,
-                              spreadRadius: 128.0.r,
-                            )
-                          ],
-                        ),
-                        child: const _Resume(),
-                      ),
-                    ),
-                  ),
-                  m.Positioned(
-                    left: 0.0,
-                    top: 0.0,
-                    width: screenSize.width,
-                    height: screenSize.height,
-                    child: m.IgnorePointer(
-                      child: m.FadeTransition(
-                        opacity: whiteFadeOutAnimation,
-                        child: m.Container(
-                          color: m.Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+          theme: m.ThemeData(scaffoldBackgroundColor: m.Colors.white),
+          home: const m.Scaffold(
+            body: _Resume(),
+          ),
         );
       },
     );
