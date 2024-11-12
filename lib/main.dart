@@ -6,7 +6,6 @@ import 'package:url_launcher/url_launcher.dart' as url;
 
 const double maxRadius = 512.0;
 const double _fontSize = 100.0;
-const int numBoids = 96;
 const double borderRadius = 12.0;
 const double padding = 16.0;
 
@@ -169,9 +168,7 @@ m.Widget projectButton({
   );
 }
 
-m.Widget emailButton(
-  double fontSize,
-) {
+m.Widget emailButton(double fontSize) {
   return buttonBuilder(
     left: 0.0,
     top: padding,
@@ -201,9 +198,7 @@ m.Widget emailButton(
   );
 }
 
-m.Widget gitHubButton(
-  double fontSize,
-) {
+m.Widget gitHubButton(double fontSize) {
   return buttonBuilder(
     left: padding,
     top: padding,
@@ -223,9 +218,28 @@ m.Widget gitHubButton(
   );
 }
 
-m.Widget resumeButton(
-  double fontSize,
-) {
+m.Widget linkedInButton(double fontSize) {
+  return buttonBuilder(
+    left: padding,
+    top: padding,
+    right: padding,
+    bottom: padding,
+    onPressed: () async {
+      if (!await url
+          .launchUrl(Uri.parse('https://www.linkedin.com/in/conradtyler0'))) {
+        throw 'Failed to launch iinkedin link';
+      }
+    },
+    child: m.Center(
+      child: m.SizedBox(
+        height: fontSize * 1.3,
+        child: m.Image.asset('assets/In-White-128@2x.png'),
+      ),
+    ),
+  );
+}
+
+m.Widget resumeButton(double fontSize) {
   return buttonBuilder(
     left: padding,
     top: padding,
@@ -270,6 +284,11 @@ class Project {
 }
 
 const projects = [
+  Project(
+    title: 'Pub.dev Browser Lib',
+    githubUrl: 'https://github.com/tyler-conrad/pub_dev_browser_lib',
+    docsUrl: 'doc/pub_dev_browser_lib',
+  ),
   Project(
     title: 'Floss',
     githubUrl: 'https://github.com/tyler-conrad/floss',
@@ -428,6 +447,9 @@ class _ResumeState extends m.State<_Resume> with m.TickerProviderStateMixin {
                         _fontSize.r,
                       ),
                       gitHubButton(
+                        _fontSize.r,
+                      ),
+                      linkedInButton(
                         _fontSize.r,
                       ),
                       resumeButton(
